@@ -112,19 +112,11 @@ class Network:
                 post.get_neuron(a).value += pneuron.get_weight(a) * pneuron.value
             post.get_neuron(a).value = sigmoid(post.get_neuron(a).value)
 
-    # determines the error between the calculated output and the expected output
-    def error(self, calc, exp):
-        sum = 0
-        for a in range(0, len(calc)):
-            sum += (calc[a] - exp[a])**2
-        return sum
-
     # evaluates the network with the current weights for an input sequence of arg
     def evalutate(self, arg):
         self.layers[0].set_vector(arg)
         for a in range(0, self.num_layers - 1):
             self.solve(self.layers[a], self.layers[a + 1], a)
-            #self.solve(self.layers[a], self.layers[a + 1], a) # for debugging
 
     # returns the nth layer in the network
     def get_layer(self, n):
@@ -133,14 +125,16 @@ class Network:
     # compute and update the network given the input of arg, against an expected output
     def compute(self, arg, exp):
         # first we check for mismatch errors
-        if (len(arg) != self.layers[0].size):
+        # this is defined as the length of either arg or exp not being the same size of the input layer or output layer
+        # respectively
+        if (len(arg) != self.get_layer_size(0)):
             print("Input size mismatch error:")
-            print("Network expected input: ", self.layers[0].size)
+            print("Network expected input: ", self.get_layer_size(0))
             print("Received input: ", len(arg))
             return -1
-        if (len(exp) != self.layers[self.num_layers-1].size):
+        if (len(exp) != self.get_layer_size(self.num_layers-1)):
             print("Output size mismatch error.")
-            print("Network expected output: ", self.layers[self.num_layers-1].size)
+            print("Network expected output: ", self.get_layer_size(self.num_layers-1))
             print("Received output: ", len(exp))
             return -1
         # we set the input layer with the input args
@@ -154,36 +148,46 @@ class Network:
             # it is an iterator used in case there are multiple output neurons
             it = 0
             # we iterate through every neuron in the current layer
-            for neuron in self.layers[layer].neurons:
+            for neuron in self.get_neurons(layer):
                 delta = 0
                 # if the current layer is NOT the ouptut layer
                 if (layer != self.num_layers - 1):
                     # First, we need to update the weights of all edges stemming from this neuron
                     for a in range(0, len(neuron.weights)):
-                        neuron.weights[a] = neuron.weights[a] - self.gamma * self.layers[layer+1].neurons[a].delta * neuron.value
+                        neuron.weights[a] = neuron.weights[a] - self.gamma * self.get_neuron(layer+1, a).delta * neuron.value
                     # next, we need to update this delta of this neuron
                     # we iterate through all neurons in the next layer by index
-                    for a in range(0,self.layers[layer+1].size):
+                    for a in range(0,self.get_layer_size(layer+1)):
                         # we do the summation part of the delta formula, where the value is delta_z * weight_yz
-                        delta += self.layers[layer+1].neurons[a].delta * neuron.weights[a]
+                        delta += self.get_neuron(layer + 1, a).delta * neuron.get_weight(a)
                     # we finally multiply by the derivative of the sigmoid function
                     delta *= neuron.value * (1 - neuron.value)
                     # we set the current neurons delta value
                     neuron.delta = delta
                 else:
                     # if we're in the output layer, we simply calculate the delta by single formula
-
-                    # NORMAL COST FUNCTION
-
                     neuron.delta = (neuron.value - exp[it]) * neuron.value * (1 - neuron.value)
-
-                    #print("OUTPUT DELTA: ", neuron.delta)
-                    #print("OUTPUT VALUE: ", neuron.value)
                     # in this case, there are no weights to change, so we just continue
                 # we increase the special iterator by 1 (for indexing purposes)
                 it += 1
 
             layer -= 1
+
+    # returns the neurons of a specific layer
+    def get_neurons(self, layer):
+        return self.layers[layer].neurons
+
+    # returns the nth neuron of a specific layer
+    def get_neuron(self, layer, n):
+        return self.layers[layer].get_neuron(n)
+
+    # returns the size of the nth layer
+    def get_layer_size(self, n):
+        return self.layers[n].size
+
+    # returns the output layer
+    def get_output_layer(self):
+        return self.layers[self.num_layers - 1]
 
     # used for debugging
     def print_network(self):
@@ -194,9 +198,11 @@ class Network:
                 print("WEIGHTS FOR NEURON ",it," in layer ",a,": ",n.weights)
                 it += 1
 
+    # returns a vector of the output layer values
     def get_output(self):
         return self.layers[self.num_layers-1].get_vector()
 
+    # prints the weights of all neurons
     def print_weights(self):
         b = 0
         for layer in self.layers:
@@ -207,74 +213,86 @@ class Network:
                 a += 1
             b += 1
 
+    # returns the delta of the first output neuron
     def get_delta(self):
         return self.layers[self.num_layers-1].neurons[len(self.layers[self.num_layers-1].neurons)-1].delta
 
+    # returns an array where the first index is the percent error and second index is relative error
     def accuracy(self, set):
+        # initialize the counters
         sum1 = 0
         sum2 = 0
         it = 0
+        # we iterate through the test set, which is a 2D array where each row is a vector of (input, output)
         for a in range(0, len(set)):
+            # partition the set to the input and output variables
             inp = [set[a][0], set[a][1], set[a][2]]
             out = set[a][3]
+            # evaluate the input through the current state of the network
             self.evalutate(inp)
+            # get the output from the network
             act = self.get_output()[0]
+            # we update the counters
             it += 1
+            sum1 += (1/2)*(act - out)**2 # sum1 is chi squared test, for percent error
+            sum2 += abs(out - act) / out # sum2 is the relative error for the point
 
-
-            sum1 += (1/2)*(act - out)**2
-
-
-            sum2 += abs(act - out) / act
-
-
+        # return a vector for the two errors as averages over all points
         return [sum1 / it, sum2 / it]
 
+# returns a vector in the sequence of [a, a+.01, a+.02, a+.03] where a = [0,.97]
+# used for debugging
 def random_input():
     i = random.random() * .97 + .03
     return [i - .03, i - .02, i - .01, i]
 
+# main function used for debugging
+def debug():
 
-def main():
-
-    random.seed(3223)
-
-    data_folder = Path("C:/Users/ultim/Documents/2020/School Stuff/Research/AI/Data/")
-    file_to_open = data_folder / "Timestep_1.mat"
-    mat_contents = sio.loadmat(file_to_open)
-    mat_U = mat_contents['U']
-    mat_V = mat_contents['V']
-    mat_W = mat_contents['W']
-    #print("U shape: ", mat_U.shape)
-    #print("V size: ", mat_V.size)
-    #print("W size: ", mat_W.size)
-    #print(mat_U[0, 0, 0])
-
+    # create a new network with the given variables
     my_network = Network(input_size = 3,
                          output_size= 1,
                          num_layers= 0,
                          gamma= .1)
+
+    # n is the number of iterations
     n = 100000
-    deltas = []
-    diff = []
-    x = []
-    accuracy_set = []
-    cost_set = []
+
+    # establish some sets to be graphed for debugging purposes
+    deltas = [] # list of the delta values
+    diff = [] # list of the differences between calculated and accepted values
+    x = [] # the x axis
+    accuracy_set = [] # list of the accuracies for the network
+    cost_set = [] # list of costs used for the network
+
+    # iterate through n times, training the network over a random vector of inputs to the correct output
     for a in range(0,n):
+        # generate a random vector sequence and run the compute function over it
         inp = random_input()
         my_network.compute([inp[0], inp[1], inp[2]],[inp[3]])
+        # append the meta-data to the appropriate array
         x.append(a)
         deltas.append(my_network.get_delta())
         diff.append(my_network.get_output()[0] - inp[3])
         accuracy_set.append(inp)
         cost_set.append((1/2)*(diff[a])**2)
+
+    # test the function over an "easy to calculate" vector
     my_network.evalutate([0,.01,.02])
+    # set the output value to z
     z = my_network.get_output()[0]
+
+    # print out some of the meta-data directly to the console
     print("OUTPUT VALUE: ", z)
     print("DELTA: ", my_network.get_delta())
+
+    # get the accuracy vector and print
     accuracy = my_network.accuracy(accuracy_set)
     print("AVERAGE % ERROR: ", accuracy[0] * 100)
     print("AVERAGE RELATIVE DIFFERENCE: ", accuracy[1])
+
+    # create a matplotlib graph to show the desired metadata
+    # here, we are showing the cost set, which is the relative costs at each vertex
     fig, ax = plt.subplots()
     ax.plot(x, cost_set)
     ax.set(xlabel='iterations', ylabel='cost function',
@@ -282,6 +300,23 @@ def main():
     my_network.print_weights()
     plt.show()
 
+
+# main function
+def main():
+    random.seed(3223)
+    debug()
+    #print("Hello world!")
+
+    #data_folder = Path("C:/Users/ultim/Documents/2020/School Stuff/Research/AI/Data/")
+    #file_to_open = data_folder / "Timestep_1.mat"
+    #mat_contents = sio.loadmat(file_to_open)
+    #mat_U = mat_contents['U']
+    #mat_V = mat_contents['V']
+    #mat_W = mat_contents['W']
+    # print("U shape: ", mat_U.shape)
+    # print("V size: ", mat_V.size)
+    # print("W size: ", mat_W.size)
+    # print(mat_U[0, 0, 0])
 
 if __name__ == "__main__":
     main()
