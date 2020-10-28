@@ -15,10 +15,13 @@ def preprocessing():
 
 # custon method to obtain initial vectors for the weights
 def getIV():
-    return random.random()*2 - 1
+    return 2*random.random()-1
 
 def sigmoid(z):
     return 1 / (1 + np.exp(-1 * z))
+
+def der_sigmoid(z):
+    return sigmoid(z) * (1 - sigmoid(z))
 
 class Neuron:
 
@@ -32,8 +35,13 @@ class Neuron:
         for a in range(0, size):
             self.weights.append(getIV())
 
+    # set the value of the neuron
     def setValue(self, value):
         self.value = value
+
+    # get the nth weight of the neuron
+    def get_weight(self, n):
+        return self.weights[n]
 
 class Layer:
 
@@ -48,25 +56,25 @@ class Layer:
             self.neurons.append(Neuron(locked = True, value = 1))
 
     # initializes the weights between this layer and the next one
-    def init_weights(self, layer, out_layer_num):
+    def init_weights(self, layer):
         for a in self.neurons:
-            if(layer.layer_num == out_layer_num):
-                a.init_weights(layer.size)
-            else:
-                a.init_weights(layer.size + 1)
+            a.init_weights(layer.size)
 
     # set the value of the vector to be arg
     def set_vector(self, arg):
         for a in range(0, len(arg)):
             self.neurons[a].setValue(arg[a])
 
+    # returns an array which corresponds to the values of each neuron
     def get_vector(self):
         vals = []
         for a in range(0, self.size):
             vals.append(self.neurons[a].value)
         return vals
 
-
+    # returns the nth neuron in the layer
+    def get_neuron(self, n):
+        return self.neurons[n]
 
 class Network:
 
@@ -85,10 +93,9 @@ class Network:
             self.layers.append(Layer(self.layer_size, a + 1))
         self.layers.append(Layer(output_size, self.num_layers - 1, bias=False))
         for a in range(0, self.num_layers - 1):
-            self.layers[a].init_weights(self.layers[a+1], self.num_layers-1)
+            self.layers[a].init_weights(self.layers[a+1])
         print("Network successfully created!")
         print("Total number of layers: ", self.num_layers)
-
 
     # pass the values from pre layer to post layer
     def solve(self, pre, post, layer):
@@ -98,12 +105,12 @@ class Network:
         # then at the end of the inner loop we simply use the activation function
         # this also allows us to skip calculation of the bias
         for a in range(0, post.size):
-            if(post.neurons[a].locked):
+            if(post.get_neuron(a).locked):
                 continue
-            post.neurons[a].value = 0
+            post.get_neuron(a).value = 0
             for pneuron in pre.neurons:
-                post.neurons[a].value += pneuron.weights[a] * pneuron.value
-            post.neurons[a].value = sigmoid(post.neurons[a].value)
+                post.get_neuron(a).value += pneuron.get_weight(a) * pneuron.value
+            post.get_neuron(a).value = sigmoid(post.get_neuron(a).value)
 
     # determines the error between the calculated output and the expected output
     def error(self, calc, exp):
@@ -119,6 +126,9 @@ class Network:
             self.solve(self.layers[a], self.layers[a + 1], a)
             #self.solve(self.layers[a], self.layers[a + 1], a) # for debugging
 
+    # returns the nth layer in the network
+    def get_layer(self, n):
+        return self.layers[n]
 
     # compute and update the network given the input of arg, against an expected output
     def compute(self, arg, exp):
@@ -162,7 +172,11 @@ class Network:
                     neuron.delta = delta
                 else:
                     # if we're in the output layer, we simply calculate the delta by single formula
+
+                    # NORMAL COST FUNCTION
+
                     neuron.delta = (neuron.value - exp[it]) * neuron.value * (1 - neuron.value)
+
                     #print("OUTPUT DELTA: ", neuron.delta)
                     #print("OUTPUT VALUE: ", neuron.value)
                     # in this case, there are no weights to change, so we just continue
@@ -196,8 +210,28 @@ class Network:
     def get_delta(self):
         return self.layers[self.num_layers-1].neurons[len(self.layers[self.num_layers-1].neurons)-1].delta
 
+    def accuracy(self, set):
+        sum1 = 0
+        sum2 = 0
+        it = 0
+        for a in range(0, len(set)):
+            inp = [set[a][0], set[a][1], set[a][2]]
+            out = set[a][3]
+            self.evalutate(inp)
+            act = self.get_output()[0]
+            it += 1
+
+
+            sum1 += (1/2)*(act - out)**2
+
+
+            sum2 += abs(act - out) / act
+
+
+        return [sum1 / it, sum2 / it]
+
 def random_input():
-    i = 2*random.random()-.97;
+    i = random.random() * .97 + .03
     return [i - .03, i - .02, i - .01, i]
 
 
@@ -218,32 +252,35 @@ def main():
 
     my_network = Network(input_size = 3,
                          output_size= 1,
-                         num_layers= 3,
+                         num_layers= 0,
                          gamma= .1)
-    n = 10000
+    n = 100000
     deltas = []
     diff = []
     x = []
+    accuracy_set = []
+    cost_set = []
     for a in range(0,n):
         inp = random_input()
         my_network.compute([inp[0], inp[1], inp[2]],[inp[3]])
         x.append(a)
         deltas.append(my_network.get_delta())
         diff.append(my_network.get_output()[0] - inp[3])
-        #print("DIFFERENCE: ", diff[a])
-        #print("DELTA: ", deltas[a])
-        #input("Press enter to continue...")
+        accuracy_set.append(inp)
+        cost_set.append((1/2)*(diff[a])**2)
     my_network.evalutate([0,.01,.02])
-    print("OUTPUT VALUE: ", my_network.get_output())
+    z = my_network.get_output()[0]
+    print("OUTPUT VALUE: ", z)
     print("DELTA: ", my_network.get_delta())
+    accuracy = my_network.accuracy(accuracy_set)
+    print("AVERAGE % ERROR: ", accuracy[0] * 100)
+    print("AVERAGE RELATIVE DIFFERENCE: ", accuracy[1])
     fig, ax = plt.subplots()
-    ax.plot(x, deltas)
-    ax.set(xlabel='iterations', ylabel='delta value',
-           title='Plot values')
-
+    ax.plot(x, cost_set)
+    ax.set(xlabel='iterations', ylabel='cost function',
+           title='Cost Function over x Iterations')
+    my_network.print_weights()
     plt.show()
-    #print(my_network.get_output())
-    #my_network.print_network()
 
 
 if __name__ == "__main__":
