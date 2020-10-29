@@ -62,11 +62,14 @@ class Neuron:
 
 class Layer:
 
-    def __init__(self, size, layer_num, bias = True):
+    def __init__(self, size, layer_num, bias = True, load = False):
         # set the instance variables
         self.layer_num = layer_num
         self.size = size # this size does NOT include the bias
         self.neurons = []
+        # for loading
+        if (load == True):
+            return
         # iterate through the size of the layer and append a new neuron
         for a in range(0, size):
             self.neurons.append(Neuron())
@@ -101,6 +104,9 @@ class Layer:
 class Network:
 
     def __init__(self, input_size = 0, output_size = 0, num_layers = 2, gamma = .1, layer_size_override = 0):
+        # for loading and saving
+        if (input_size == 0):
+            return
         # initialize input and output layer sizes
         self.input_size = input_size
         self.output_size = output_size
@@ -312,6 +318,7 @@ class Network:
                 f.write(str(layer.size+1) + " ")
             current_layer += 1
             for neuron in layer.neurons:
+                f.write(str(len(neuron.weights)) + " ")
                 for weight in neuron.weights:
                     f.write(str(weight) + " ")
         f.write("E")
@@ -332,26 +339,36 @@ def load_network(name):
     network.num_layers = num_layers
     network.gamma = gamma
     network.layers = []
-    network.input_size = list[2]
+    network.input_size = list[3]
     i = 2 # index of the list[]
     for a in range(0, num_layers):
-
         num_neurons = int(list[i])
-        network.layers.append(Layer(size = num_neurons, layer_num = a))
-        weights = []
+        i += 1
+        if (a == num_layers - 1):
+            network.layers.append(Layer(size=num_neurons, layer_num=a, load=True))
+        else:
+            network.layers.append(Layer(size=num_neurons - 1, layer_num=a, load=True))
+        print("NUM NEURONS: ",num_neurons)
         for b in range(0, num_neurons):
             if (b == num_neurons - 1):
-                network.get_layer(a).append(Neuron(value = 1))
+                network.get_layer(a).neurons.append(Neuron(value = 1))
             else:
-                network.get_layer(a).append(Neuron())
+                network.get_layer(a).neurons.append(Neuron())
             if (a == num_layers - 1):
                 network.output_size = num_neurons
-                # do something
+                network.get_neuron(a,b).set_weights([])
+                print("YAY")
                 break
+            elif (b > 0):
+                network.layer_size = num_neurons
+            num_weights = int(list[i])
             i += 1
-            weights.append(float(list[i]))
-        i += 1
-    print(str)
+            weights = []
+            for w in range(0, num_weights):
+                weights.append(float(list[i]))
+                i += 1
+            network.get_neuron(a,b).set_weights(weights)
+    return network
 
 
 # returns a vector in the sequence of [a, a+.01, a+.02, a+.03] where a = [0,.97]
@@ -366,7 +383,7 @@ def debug():
     # create a new network with the given variables
     my_network = Network(input_size = 3,
                          output_size= 1,
-                         num_layers= 0,
+                         num_layers= 2,
                          gamma= .1)
 
     # n is the number of iterations
@@ -422,6 +439,7 @@ def debug_2():
         print("Exiting")
     else:
         print("Woo hoo!")
+    network.print_weights()
 
 # creates a new neural network given the parameters for a new network (for the constructor of the Network Object)
 # along with the
