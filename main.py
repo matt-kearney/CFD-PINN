@@ -444,13 +444,12 @@ def debug_2():
 # creates a new neural network given the parameters for a new network (for the constructor of the Network Object)
 # along with the
 def run_network(input_size, output_size, input_set, output_set, num_layers = 2, gamma = .1, layer_size_override = 0):
-    print("FUCK")
+    print("TEST")
 
 # main function
 def main():
     random.seed(3223)
     debug_2()
-    #debug_2()
     #print("Hello world!")
 
     #data_folder = Path("C:/Users/ultim/Documents/2020/School Stuff/Research/AI/Data/")
