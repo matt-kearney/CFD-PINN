@@ -10,29 +10,38 @@ import random
 import matplotlib
 import matplotlib.pyplot as plt
 
+# preprocessing of the script
 def preprocessing():
     print("preprocessing")
 
 # custon method to obtain initial vectors for the weights
 def getIV():
+    # here, we just have an RNG between the range of [-1,1]
     return 2*random.random()-1
 
+# returns the value of the sigmoid function with z as the input
 def sigmoid(z):
     return 1 / (1 + np.exp(-1 * z))
 
+# UNUSED
+# derivative of the sigmoid function
 def der_sigmoid(z):
     return sigmoid(z) * (1 - sigmoid(z))
 
 class Neuron:
 
     def __init__(self, locked = False, value = 0):
+        # define instance variables
         self.delta = 0
         self.weights = []
         self.value = value
         self.locked = locked
 
+    # initialize the weights of the current neuron based on the size of the next layer
     def init_weights(self, size):
+        # iterate through the size of the next layer and append a new weight to the current neuron
         for a in range(0, size):
+            # the getIV function generates an IV on a given initialization function
             self.weights.append(getIV())
 
     # set the value of the neuron
@@ -46,27 +55,32 @@ class Neuron:
 class Layer:
 
     def __init__(self, size, layer_num, bias = True):
+        # set the instance variables
         self.layer_num = layer_num
         self.size = size # this size does NOT include the bias
         self.neurons = []
+        # iterate through the size of the layer and append a new neuron
         for a in range(0, size):
             self.neurons.append(Neuron())
-        # add in the bais if applicable
+        # add in the bais if applicable (should be every layer except output)
         if (bias == True):
             self.neurons.append(Neuron(locked = True, value = 1))
 
     # initializes the weights between this layer and the next one
     def init_weights(self, layer):
+        # iterate through all neurons and initialize the weights between this and layer
         for a in self.neurons:
             a.init_weights(layer.size)
 
     # set the value of the vector to be arg
     def set_vector(self, arg):
+        # iterate through the layer and set the value of each neuron to the corresponding value in the vector
         for a in range(0, len(arg)):
             self.neurons[a].setValue(arg[a])
 
     # returns an array which corresponds to the values of each neuron
     def get_vector(self):
+        # create an empty array and iterate through the layer appending the value of each neuron
         vals = []
         for a in range(0, self.size):
             vals.append(self.neurons[a].value)
@@ -78,45 +92,65 @@ class Layer:
 
 class Network:
 
-    # In our case, output_size will always be 1, so layer_size = input_size / 2
     def __init__(self, input_size, output_size, num_layers = 2, gamma = .1, layer_size_override = 0):
+        # initialize input and output layer sizes
         self.input_size = input_size
         self.output_size = output_size
+        # the hidden layer size is generally the average between the input and output
         self.layer_size = int(np.round((input_size + output_size) / 2))
+        # however, we can override this calculation from a function parameter
         if (layer_size_override != 0):
             self.layer_size = layer_size_override
+        # the total number of layers is the number of hidden layers plus one input and one output layer
         self.num_layers = num_layers + 2
+        # the Network object is defined as an array of layer objects
         self.layers = []
+        # gamma is the learning rate
         self.gamma = gamma
+        # we input an input layer
         self.layers.append(Layer(input_size, 0))
+        # we iterate for the number of hidden layers and append
         for a in range(0, num_layers):
             self.layers.append(Layer(self.layer_size, a + 1))
+
+        # finally, we append a new layer for the output
+        # note, bias = False, since the output layer doesn't have a bias
         self.layers.append(Layer(output_size, self.num_layers - 1, bias=False))
+
+        # We iterate through all layers except the output layer to initialize weights
         for a in range(0, self.num_layers - 1):
             self.layers[a].init_weights(self.layers[a+1])
-        print("Network successfully created!")
-        print("Total number of layers: ", self.num_layers)
+
+        # couple of print statements for debugging
+        #print("Network successfully created!")
+        #print("Total number of layers: ", self.num_layers)
 
     # pass the values from pre layer to post layer
-    def solve(self, pre, post, layer):
+    def solve(self, pre, post):
         # this loop allows us to do the following:
         # since the nth weight of a neuron corresponds to the nth neuron in the next layer
         # we can simply iterate the post layer by index, and the pre layer by neuron
         # then at the end of the inner loop we simply use the activation function
         # this also allows us to skip calculation of the bias
         for a in range(0, post.size):
+            # if the post layer neuron is a bias, then we pass
             if(post.get_neuron(a).locked):
                 continue
+            # we reset the value of the neuron
             post.get_neuron(a).value = 0
+            # iterate through all the neurons connecting to the post neuron and add the weight * pre.value
             for pneuron in pre.neurons:
                 post.get_neuron(a).value += pneuron.get_weight(a) * pneuron.value
+            # we then update the post neurons value after passing it through the activation function (can be changed)
             post.get_neuron(a).value = sigmoid(post.get_neuron(a).value)
 
     # evaluates the network with the current weights for an input sequence of arg
-    def evalutate(self, arg):
+    def evaluate(self, arg):
+        # we upload the arg vector into the input layer of the network
         self.layers[0].set_vector(arg)
+        # iterate through each layer calling the solve function on the current layer and the next layer
         for a in range(0, self.num_layers - 1):
-            self.solve(self.layers[a], self.layers[a + 1], a)
+            self.solve(self.layers[a], self.layers[a + 1])
 
     # returns the nth layer in the network
     def get_layer(self, n):
@@ -139,25 +173,30 @@ class Network:
             return -1
         # we set the input layer with the input args
         self.layers[0].set_vector(arg)
-        # iterate through the inner layers and solve
+        # iterate through the inner layers and call the solve function
         for a in range(0, self.num_layers - 1):
-            self.solve(self.layers[a], self.layers[a+1], a)
-        # now we backpropagate:
+            self.solve(self.layers[a], self.layers[a+1])
+        # now we back-propagate, which is solved dynamically and iteratively
+        # despite having multiple inner loops, the total runtime of the algorithm is O(n), where n is the number
+        # of weights in the network. I'm sure there's ways that this algorithm can be optimized, which is due to
+        # my inexperience in coding, however every weight must be visited, so O(n) in minimum
+        # we set the iterative layer to the output layer
         layer = self.num_layers - 1
         while(layer != -1):
             # it is an iterator used in case there are multiple output neurons
             it = 0
             # we iterate through every neuron in the current layer
             for neuron in self.get_neurons(layer):
+                # reset a temp variable for calculating the delta
                 delta = 0
-                # if the current layer is NOT the ouptut layer
+                # if the current layer is NOT the output layer
                 if (layer != self.num_layers - 1):
                     # First, we need to update the weights of all edges stemming from this neuron
                     for a in range(0, len(neuron.weights)):
                         neuron.weights[a] = neuron.weights[a] - self.gamma * self.get_neuron(layer+1, a).delta * neuron.value
                     # next, we need to update this delta of this neuron
                     # we iterate through all neurons in the next layer by index
-                    for a in range(0,self.get_layer_size(layer+1)):
+                    for a in range(0, self.get_layer_size(layer+1)):
                         # we do the summation part of the delta formula, where the value is delta_z * weight_yz
                         delta += self.get_neuron(layer + 1, a).delta * neuron.get_weight(a)
                     # we finally multiply by the derivative of the sigmoid function
@@ -170,7 +209,7 @@ class Network:
                     # in this case, there are no weights to change, so we just continue
                 # we increase the special iterator by 1 (for indexing purposes)
                 it += 1
-
+            # we decrement the layer and rinse and repeat
             layer -= 1
 
     # returns the neurons of a specific layer
@@ -229,7 +268,7 @@ class Network:
             inp = [set[a][0], set[a][1], set[a][2]]
             out = set[a][3]
             # evaluate the input through the current state of the network
-            self.evalutate(inp)
+            self.evaluate(inp)
             # get the output from the network
             act = self.get_output()[0]
             # we update the counters
@@ -278,7 +317,7 @@ def debug():
         cost_set.append((1/2)*(diff[a])**2)
 
     # test the function over an "easy to calculate" vector
-    my_network.evalutate([0,.01,.02])
+    my_network.evaluate([0,.01,.02])
     # set the output value to z
     z = my_network.get_output()[0]
 
