@@ -6,6 +6,9 @@ from pathlib import Path
 import numpy as np
 # random
 import random
+# os for path
+import os.path
+from os import path
 # matplotlib for visualization
 import matplotlib
 import matplotlib.pyplot as plt
@@ -52,6 +55,11 @@ class Neuron:
     def get_weight(self, n):
         return self.weights[n]
 
+    # sets the weights to the given array
+    def set_weights(self, w):
+        for weight in w:
+            self.weights.append(weight)
+
 class Layer:
 
     def __init__(self, size, layer_num, bias = True):
@@ -92,7 +100,7 @@ class Layer:
 
 class Network:
 
-    def __init__(self, input_size, output_size, num_layers = 2, gamma = .1, layer_size_override = 0):
+    def __init__(self, input_size = 0, output_size = 0, num_layers = 2, gamma = .1, layer_size_override = 0):
         # initialize input and output layer sizes
         self.input_size = input_size
         self.output_size = output_size
@@ -279,6 +287,73 @@ class Network:
         # return a vector for the two errors as averages over all points
         return [sum1 / it, sum2 / it]
 
+    # saves the current network and all values to file name (name needs to end with .txt)
+    # it follows the format:
+    # GAMMA
+    # NUM_LAYERS \n
+    # NUM_NEURONS \n
+    # WEIGHTS OF NEURON 1
+    # WEIGHTS OF NEURON 2
+    # ...
+    # <REPEAT FOR ALL NEURONS IN LAYER>
+    # <REPEAT FOR ALL LAYERS IN NETWORK>
+    def save_network(self, name):
+        # create a new file of the given name
+        f = open(name, "w")
+
+        f.write(str(self.gamma) + " ")
+        f.write(str(self.num_layers) + " ")
+        # iterate through the network options and save the info
+        current_layer = 0
+        for layer in self.layers:
+            if (current_layer == len(self.layers) - 1):
+                f.write(str(layer.size) + " ")
+            else:
+                f.write(str(layer.size+1) + " ")
+            current_layer += 1
+            for neuron in layer.neurons:
+                for weight in neuron.weights:
+                    f.write(str(weight) + " ")
+        f.write("E")
+        f.close()
+        print("Network successfully saved to ", name)
+
+# loads a network under a given filename (must end in .txt)
+def load_network(name):
+    if (not path.exists(name)):
+        print("File does not exist!")
+        return -1
+    network = Network()
+    f = open(name, "r")
+    str = f.read()
+    list = str.split()
+    gamma = float(list[0])
+    num_layers = int(list[1])
+    network.num_layers = num_layers
+    network.gamma = gamma
+    network.layers = []
+    network.input_size = list[2]
+    i = 2 # index of the list[]
+    for a in range(0, num_layers):
+
+        num_neurons = int(list[i])
+        network.layers.append(Layer(size = num_neurons, layer_num = a))
+        weights = []
+        for b in range(0, num_neurons):
+            if (b == num_neurons - 1):
+                network.get_layer(a).append(Neuron(value = 1))
+            else:
+                network.get_layer(a).append(Neuron())
+            if (a == num_layers - 1):
+                network.output_size = num_neurons
+                # do something
+                break
+            i += 1
+            weights.append(float(list[i]))
+        i += 1
+    print(str)
+
+
 # returns a vector in the sequence of [a, a+.01, a+.02, a+.03] where a = [0,.97]
 # used for debugging
 def random_input():
@@ -337,13 +412,27 @@ def debug():
     ax.set(xlabel='iterations', ylabel='cost function',
            title='Cost Function over x Iterations')
     my_network.print_weights()
+    my_network.save_network("test.txt")
     plt.show()
 
+# another debug function
+def debug_2():
+    network = load_network("test.txt")
+    if(network == -1):
+        print("Exiting")
+    else:
+        print("Woo hoo!")
+
+# creates a new neural network given the parameters for a new network (for the constructor of the Network Object)
+# along with the
+def run_network(input_size, output_size, input_set, output_set, num_layers = 2, gamma = .1, layer_size_override = 0):
+    print("FUCK")
 
 # main function
 def main():
     random.seed(3223)
-    debug()
+    debug_2()
+    #debug_2()
     #print("Hello world!")
 
     #data_folder = Path("C:/Users/ultim/Documents/2020/School Stuff/Research/AI/Data/")
