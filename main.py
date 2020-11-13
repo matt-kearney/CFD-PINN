@@ -13,9 +13,75 @@ from os import path
 import matplotlib
 import matplotlib.pyplot as plt
 
+# normalizes n on the scale of [-1,1] based on min/max [min,max]
+def normalize(min, max, n):
+    range = max - min
+    n = n - min
+    return -1 + (2 * n / range)
+
+# partitions a set of data (in [t][x][y][z] format) into input and output arrays with given sizings
+# returns an input set an d
+def partition(data, n, input_size, output_size = 1):
+    print("Partitioning")
+    input_set = []
+    output_set = []
+    max = -np.inf
+    min = np.inf
+    for a in range(0,n):
+        t = int(random.random()*(10-input_size-1))
+        temp = []
+        x = int(random.random()*120)
+        y = int(random.random()*20)
+        z = int(random.random()*2200)
+        for b in range(t,input_size+t):
+            pt = data[b][x][y][z]
+            if(min > pt):
+                min = pt
+            if(max < pt):
+                max = pt
+            temp.append(data[b][x][y][z])
+        input_set.append(temp)
+        temp = []
+        pt = data[t+1+input_size][x][y][z]
+        if (min > pt):
+            min = pt
+        if (max < pt):
+            max = pt
+        temp.append(pt)
+        output_set.append(temp)
+    for a in range(0,n):
+        for b in range(0, input_size):
+            input_set[a][b] = normalize(min, max, input_set[a][b])
+        for b in range(0, len(output_set[0])):
+            output_set[a][b] = normalize(min, max, output_set[a][b])
+    print("MAX: "+str(max))
+    print("MIN: "+str(min))
+    return input_set, output_set
+
+
 # preprocessing of the script
+# returns a matrix of ALL the data
+# right now it's just the U part
 def preprocessing():
     print("preprocessing")
+    random.seed(3223)
+
+    data_folder = Path("C:/Users/ultim/Documents/2020/School Stuff/Research/AI/Data/")
+
+    # file_to_open = data_folder / "Timestep_1.mat"
+    mat_U_all = [];
+    for a in range(1, 11):
+        file = "Timestep_" + str(a) + ".mat"
+        file_to_open = data_folder / file
+        mat_contents = sio.loadmat(file_to_open)
+        mat_U_all.append(mat_contents['U'])
+    # mat_contents = sio.loadmat(file_to_open)
+    # mat_U = mat_contents['U']
+    # mat_V = mat_contents['V']
+    # mat_W = mat_contents['W']
+    print("U size: ", len(mat_U_all[0][0][0]))
+
+    return mat_U_all
 
 # custon method to obtain initial vectors for the weights
 def getIV():
@@ -370,7 +436,6 @@ def load_network(name):
             network.get_neuron(a,b).set_weights(weights)
     return network
 
-
 # returns a vector in the sequence of [a, a+.01, a+.02, a+.03] where a = [0,.97]
 # used for debugging
 def random_input():
@@ -443,25 +508,63 @@ def debug_2():
 
 # creates a new neural network given the parameters for a new network (for the constructor of the Network Object)
 # along with the
-def run_network(input_size, output_size, input_set, output_set, num_layers = 2, gamma = .1, layer_size_override = 0):
-    print("TEST")
+def run_network(input_size, input_set, output_set, output_size=1, name="default.txt", num_layers = 0, gamma = .1, layer_size_override = 0, iterations=1):
+    my_network = Network(input_size=input_size,
+                         output_size=output_size,
+                         num_layers=num_layers,
+                         gamma=gamma,
+                         layer_size_override=layer_size_override)
+    if(input_size != len(input_set[0])):
+        print("SIZE DISCREPANCY!")
+        return
+    print("RUNNING NETWORK: "+name)
+    #for n in input_set:
+        #print(n)
+    diff = []
+    cost_set = []
+    accuracy_set = []
+    x = []
+    deltas = []
+    for it in range(0, iterations):
+        for a in range(0, len(input_set)):
+            x.append(a + len(input_set)*it)
+            my_network.compute(input_set[a], output_set[a]);
+            diff.append(my_network.get_output()[0] - output_set[a])
+
+            cost_set.append((1/2)*(diff[a])**2)
+            temp = []
+            for b in range(0, input_size):
+                temp.append(input_set[a][b])
+            temp.append(output_set[a])
+            accuracy_set.append(temp)
+            deltas.append(my_network.get_delta())
+            if (diff[a] - .9527 < .0001):
+                print(input_set[a],"  ",output_set[a],"  ",my_network.get_output()[0],"  DELTA: ",deltas[a])
+    accuracy = my_network.accuracy(accuracy_set)
+    print("AVERAGE % ERROR: ", accuracy[0] * 100)
+    print("AVERAGE RELATIVE DIFFERENCE: ", accuracy[1])
+    fig, ax = plt.subplots()
+    ax.plot(x, diff)
+    ax.set(xlabel='iterations', ylabel='cost function',
+           title='Cost Function over x Iterations')
+    my_network.print_weights()
+    my_network.save_network(name)
+    plt.show()
+
+
+
 
 # main function
 def main():
-    random.seed(3223)
-    debug_2()
+    #debug()
     #print("Hello world!")
 
-    #data_folder = Path("C:/Users/ultim/Documents/2020/School Stuff/Research/AI/Data/")
-    #file_to_open = data_folder / "Timestep_1.mat"
-    #mat_contents = sio.loadmat(file_to_open)
-    #mat_U = mat_contents['U']
-    #mat_V = mat_contents['V']
-    #mat_W = mat_contents['W']
-    # print("U shape: ", mat_U.shape)
-    # print("V size: ", mat_V.size)
-    # print("W size: ", mat_W.size)
-    # print(mat_U[0, 0, 0])
+    data = preprocessing()
+    input_set, output_set = partition(data, n=10000, input_size=5)
+
+    run_network(5, input_set, output_set, name="test1_U.txt", num_layers=1, iterations=1, gamma=.1)
+
 
 if __name__ == "__main__":
+    random.seed(3223)
     main()
