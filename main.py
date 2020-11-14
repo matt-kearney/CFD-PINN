@@ -13,49 +13,60 @@ from os import path
 import matplotlib
 import matplotlib.pyplot as plt
 
+
+# Plots a given set
+def plot_set(x, y, ylabel='y', xlabel='x', title='graph'):
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    ax.set(xlabel=xlabel, ylabel=ylabel,
+           title=title)
+    plt.show()
+
+
 # normalizes n on the scale of [-1,1] based on min/max [min,max]
 def normalize(min, max, n):
     range = max - min
     n = n - min
-    return -1 + (2 * n / range)
+    return (n / range)
+
 
 # partitions a set of data (in [t][x][y][z] format) into input and output arrays with given sizings
-# returns an input set an d
-def partition(data, n, input_size, output_size = 1):
+# returns an input set, output set, and input/output sets for testing
+def partition(data, n, input_size):
     print("Partitioning")
     input_set = []
     output_set = []
+    test_inp = []
+    test_out = []
     max = -np.inf
     min = np.inf
-    for a in range(0,n):
-        t = int(random.random()*(10-input_size-1))
+    for a in range(0, n):
+        t = int(random.random() * (10 - input_size - 1))
         temp = []
-        x = int(random.random()*120)
-        y = int(random.random()*20)
-        z = int(random.random()*2200)
-        for b in range(t,input_size+t):
+        x = int(random.random() * 120)
+        y = int(random.random() * 20)
+        z = int(random.random() * 2200)
+        for b in range(t, input_size + t):
             pt = data[b][x][y][z]
-            if(min > pt):
+            if (min > pt):
                 min = pt
-            if(max < pt):
+            if (max < pt):
                 max = pt
             temp.append(data[b][x][y][z])
         input_set.append(temp)
         temp = []
-        pt = data[t+1+input_size][x][y][z]
+        pt = data[t + 1 + input_size][x][y][z]
         if (min > pt):
             min = pt
         if (max < pt):
             max = pt
         temp.append(pt)
         output_set.append(temp)
-    for a in range(0,n):
+    for a in range(0, n):
         for b in range(0, input_size):
             input_set[a][b] = normalize(min, max, input_set[a][b])
         for b in range(0, len(output_set[0])):
             output_set[a][b] = normalize(min, max, output_set[a][b])
-    print("MAX: "+str(max))
-    print("MIN: "+str(min))
     return input_set, output_set
 
 
@@ -83,23 +94,27 @@ def preprocessing():
 
     return mat_U_all
 
+
 # custon method to obtain initial vectors for the weights
 def getIV():
-    # here, we just have an RNG between the range of [-1,1]
-    return 2*random.random()-1
+    # here, we just have an RNG between the range of [-.5,.5]
+    return 2 * random.random() - .1
+
 
 # returns the value of the sigmoid function with z as the input
 def sigmoid(z):
     return 1 / (1 + np.exp(-1 * z))
+
 
 # UNUSED
 # derivative of the sigmoid function
 def der_sigmoid(z):
     return sigmoid(z) * (1 - sigmoid(z))
 
+
 class Neuron:
 
-    def __init__(self, locked = False, value = 0):
+    def __init__(self, locked=False, value=0):
         # define instance variables
         self.delta = 0
         self.weights = []
@@ -126,12 +141,13 @@ class Neuron:
         for weight in w:
             self.weights.append(weight)
 
+
 class Layer:
 
-    def __init__(self, size, layer_num, bias = True, load = False):
+    def __init__(self, size, layer_num, bias=True, load=False):
         # set the instance variables
         self.layer_num = layer_num
-        self.size = size # this size does NOT include the bias
+        self.size = size  # this size does NOT include the bias
         self.neurons = []
         # for loading
         if (load == True):
@@ -141,7 +157,7 @@ class Layer:
             self.neurons.append(Neuron())
         # add in the bais if applicable (should be every layer except output)
         if (bias == True):
-            self.neurons.append(Neuron(locked = True, value = 1))
+            self.neurons.append(Neuron(locked=True, value=1))
 
     # initializes the weights between this layer and the next one
     def init_weights(self, layer):
@@ -167,9 +183,10 @@ class Layer:
     def get_neuron(self, n):
         return self.neurons[n]
 
+
 class Network:
 
-    def __init__(self, input_size = 0, output_size = 0, num_layers = 2, gamma = .1, layer_size_override = 0):
+    def __init__(self, input_size=0, output_size=0, num_layers=2, gamma=.1, layer_size_override=0):
         # for loading and saving
         if (input_size == 0):
             return
@@ -199,11 +216,11 @@ class Network:
 
         # We iterate through all layers except the output layer to initialize weights
         for a in range(0, self.num_layers - 1):
-            self.layers[a].init_weights(self.layers[a+1])
+            self.layers[a].init_weights(self.layers[a + 1])
 
         # couple of print statements for debugging
-        #print("Network successfully created!")
-        #print("Total number of layers: ", self.num_layers)
+        # print("Network successfully created!")
+        # print("Total number of layers: ", self.num_layers)
 
     # pass the values from pre layer to post layer
     def solve(self, pre, post):
@@ -214,7 +231,7 @@ class Network:
         # this also allows us to skip calculation of the bias
         for a in range(0, post.size):
             # if the post layer neuron is a bias, then we pass
-            if(post.get_neuron(a).locked):
+            if (post.get_neuron(a).locked):
                 continue
             # we reset the value of the neuron
             post.get_neuron(a).value = 0
@@ -246,23 +263,23 @@ class Network:
             print("Network expected input: ", self.get_layer_size(0))
             print("Received input: ", len(arg))
             return -1
-        if (len(exp) != self.get_layer_size(self.num_layers-1)):
+        if (len(exp) != self.get_layer_size(self.num_layers - 1)):
             print("Output size mismatch error.")
-            print("Network expected output: ", self.get_layer_size(self.num_layers-1))
+            print("Network expected output: ", self.get_layer_size(self.num_layers - 1))
             print("Received output: ", len(exp))
             return -1
         # we set the input layer with the input args
         self.layers[0].set_vector(arg)
         # iterate through the inner layers and call the solve function
         for a in range(0, self.num_layers - 1):
-            self.solve(self.layers[a], self.layers[a+1])
+            self.solve(self.layers[a], self.layers[a + 1])
         # now we back-propagate, which is solved dynamically and iteratively
         # despite having multiple inner loops, the total runtime of the algorithm is O(n), where n is the number
         # of weights in the network. I'm sure there's ways that this algorithm can be optimized, which is due to
         # my inexperience in coding, however every weight must be visited, so O(n) in minimum
         # we set the iterative layer to the output layer
         layer = self.num_layers - 1
-        while(layer != -1):
+        while (layer != -1):
             # it is an iterator used in case there are multiple output neurons
             it = 0
             # we iterate through every neuron in the current layer
@@ -273,10 +290,11 @@ class Network:
                 if (layer != self.num_layers - 1):
                     # First, we need to update the weights of all edges stemming from this neuron
                     for a in range(0, len(neuron.weights)):
-                        neuron.weights[a] = neuron.weights[a] - self.gamma * self.get_neuron(layer+1, a).delta * neuron.value
+                        neuron.weights[a] = neuron.weights[a] - self.gamma * self.get_neuron(layer + 1,
+                                                                                             a).delta * neuron.value
                     # next, we need to update this delta of this neuron
                     # we iterate through all neurons in the next layer by index
-                    for a in range(0, self.get_layer_size(layer+1)):
+                    for a in range(0, self.get_layer_size(layer + 1)):
                         # we do the summation part of the delta formula, where the value is delta_z * weight_yz
                         delta += self.get_neuron(layer + 1, a).delta * neuron.get_weight(a)
                     # we finally multiply by the derivative of the sigmoid function
@@ -311,50 +329,47 @@ class Network:
     # used for debugging
     def print_network(self):
         for a in range(0, self.num_layers):
-            print("SIZE OF LAYER: ",self.layers[a].size)
+            print("SIZE OF LAYER: ", self.layers[a].size)
             it = 0
             for n in self.layers[a].neurons:
-                print("WEIGHTS FOR NEURON ",it," in layer ",a,": ",n.weights)
+                print("WEIGHTS FOR NEURON ", it, " in layer ", a, ": ", n.weights)
                 it += 1
 
     # returns a vector of the output layer values
     def get_output(self):
-        return self.layers[self.num_layers-1].get_vector()
+        return self.layers[self.num_layers - 1].get_vector()
 
     # prints the weights of all neurons
     def print_weights(self):
         b = 0
         for layer in self.layers:
             a = 0
-            print("LAYER: ",b)
+            print("LAYER: ", b)
             for neuron in layer.neurons:
-                print("NEURON ",a," WEIGHTS = ",neuron.weights, "   DELTA = ",neuron.delta)
+                print("NEURON ", a, " WEIGHTS = ", neuron.weights, "   DELTA = ", neuron.delta)
                 a += 1
             b += 1
 
     # returns the delta of the first output neuron
     def get_delta(self):
-        return self.layers[self.num_layers-1].neurons[len(self.layers[self.num_layers-1].neurons)-1].delta
+        return self.layers[self.num_layers - 1].neurons[len(self.layers[self.num_layers - 1].neurons) - 1].delta
 
     # returns an array where the first index is the percent error and second index is relative error
-    def accuracy(self, set):
+    def accuracy(self, inp, out):
         # initialize the counters
         sum1 = 0
         sum2 = 0
         it = 0
         # we iterate through the test set, which is a 2D array where each row is a vector of (input, output)
-        for a in range(0, len(set)):
-            # partition the set to the input and output variables
-            inp = [set[a][0], set[a][1], set[a][2]]
-            out = set[a][3]
+        for a in range(0, len(inp)):
             # evaluate the input through the current state of the network
-            self.evaluate(inp)
+            self.evaluate(inp[a])
             # get the output from the network
             act = self.get_output()[0]
             # we update the counters
             it += 1
-            sum1 += (1/2)*(act - out)**2 # sum1 is chi squared test, for percent error
-            sum2 += abs(out - act) / out # sum2 is the relative error for the point
+            sum1 += (1 / 2) * (act - out[a]) ** 2  # sum1 is chi squared test, for percent error
+            sum2 += abs(out[a] - act) / out[a]  # sum2 is the relative error for the point
 
         # return a vector for the two errors as averages over all points
         return [sum1 / it, sum2 / it]
@@ -381,7 +396,7 @@ class Network:
             if (current_layer == len(self.layers) - 1):
                 f.write(str(layer.size) + " ")
             else:
-                f.write(str(layer.size+1) + " ")
+                f.write(str(layer.size + 1) + " ")
             current_layer += 1
             for neuron in layer.neurons:
                 f.write(str(len(neuron.weights)) + " ")
@@ -390,6 +405,10 @@ class Network:
         f.write("E")
         f.close()
         print("Network successfully saved to ", name)
+
+    # returns an array of basic network info (input size, num layers, layer size, gamma)
+    def get_info(self):
+        return self.input_size, self.num_layers, self.layer_size, self.gamma
 
 # loads a network under a given filename (must end in .txt)
 def load_network(name):
@@ -406,7 +425,7 @@ def load_network(name):
     network.gamma = gamma
     network.layers = []
     network.input_size = list[3]
-    i = 2 # index of the list[]
+    i = 2  # index of the list[]
     for a in range(0, num_layers):
         num_neurons = int(list[i])
         i += 1
@@ -414,15 +433,15 @@ def load_network(name):
             network.layers.append(Layer(size=num_neurons, layer_num=a, load=True))
         else:
             network.layers.append(Layer(size=num_neurons - 1, layer_num=a, load=True))
-        print("NUM NEURONS: ",num_neurons)
+        print("NUM NEURONS: ", num_neurons)
         for b in range(0, num_neurons):
             if (b == num_neurons - 1):
-                network.get_layer(a).neurons.append(Neuron(value = 1))
+                network.get_layer(a).neurons.append(Neuron(value=1))
             else:
                 network.get_layer(a).neurons.append(Neuron())
             if (a == num_layers - 1):
                 network.output_size = num_neurons
-                network.get_neuron(a,b).set_weights([])
+                network.get_neuron(a, b).set_weights([])
                 print("YAY")
                 break
             elif (b > 0):
@@ -433,8 +452,9 @@ def load_network(name):
             for w in range(0, num_weights):
                 weights.append(float(list[i]))
                 i += 1
-            network.get_neuron(a,b).set_weights(weights)
+            network.get_neuron(a, b).set_weights(weights)
     return network
+
 
 # returns a vector in the sequence of [a, a+.01, a+.02, a+.03] where a = [0,.97]
 # used for debugging
@@ -442,39 +462,39 @@ def random_input():
     i = random.random() * .97 + .03
     return [i - .03, i - .02, i - .01, i]
 
+
 # main function used for debugging
 def debug():
-
     # create a new network with the given variables
-    my_network = Network(input_size = 3,
-                         output_size= 1,
-                         num_layers= 2,
-                         gamma= .1)
+    my_network = Network(input_size=3,
+                         output_size=1,
+                         num_layers=2,
+                         gamma=.1)
 
     # n is the number of iterations
     n = 100000
 
     # establish some sets to be graphed for debugging purposes
-    deltas = [] # list of the delta values
-    diff = [] # list of the differences between calculated and accepted values
-    x = [] # the x axis
-    accuracy_set = [] # list of the accuracies for the network
-    cost_set = [] # list of costs used for the network
+    deltas = []  # list of the delta values
+    diff = []  # list of the differences between calculated and accepted values
+    x = []  # the x axis
+    accuracy_set = []  # list of the accuracies for the network
+    cost_set = []  # list of costs used for the network
 
     # iterate through n times, training the network over a random vector of inputs to the correct output
-    for a in range(0,n):
+    for a in range(0, n):
         # generate a random vector sequence and run the compute function over it
         inp = random_input()
-        my_network.compute([inp[0], inp[1], inp[2]],[inp[3]])
+        my_network.compute([inp[0], inp[1], inp[2]], [inp[3]])
         # append the meta-data to the appropriate array
         x.append(a)
         deltas.append(my_network.get_delta())
         diff.append(my_network.get_output()[0] - inp[3])
         accuracy_set.append(inp)
-        cost_set.append((1/2)*(diff[a])**2)
+        cost_set.append((1 / 2) * (diff[a]) ** 2)
 
     # test the function over an "easy to calculate" vector
-    my_network.evaluate([0,.01,.02])
+    my_network.evaluate([0, .01, .02])
     # set the output value to z
     z = my_network.get_output()[0]
 
@@ -497,72 +517,84 @@ def debug():
     my_network.save_network("test.txt")
     plt.show()
 
+
 # another debug function
 def debug_2():
     network = load_network("test.txt")
-    if(network == -1):
+    if (network == -1):
         print("Exiting")
     else:
         print("Woo hoo!")
     network.print_weights()
 
+
 # creates a new neural network given the parameters for a new network (for the constructor of the Network Object)
 # along with the
-def run_network(input_size, input_set, output_set, output_size=1, name="default.txt", num_layers = 0, gamma = .1, layer_size_override = 0, iterations=1):
+def run_network(input_size, input_set, output_set, test_inp, test_out, output_size=1, name="default.txt", num_layers=0,
+                gamma=.1, layer_size_override=0, iterations=1):
     my_network = Network(input_size=input_size,
                          output_size=output_size,
                          num_layers=num_layers,
                          gamma=gamma,
                          layer_size_override=layer_size_override)
-    if(input_size != len(input_set[0])):
+    if (input_size != len(input_set[0])):
         print("SIZE DISCREPANCY!")
         return
-    print("RUNNING NETWORK: "+name)
-    #for n in input_set:
-        #print(n)
+    print("RUNNING NETWORK: " + name)
+
     diff = []
     cost_set = []
-    accuracy_set = []
     x = []
     deltas = []
     for it in range(0, iterations):
         for a in range(0, len(input_set)):
-            x.append(a + len(input_set)*it)
-            my_network.compute(input_set[a], output_set[a]);
+            x.append(a + len(input_set) * it)
+            my_network.compute(input_set[a], output_set[a])
             diff.append(my_network.get_output()[0] - output_set[a])
 
-            cost_set.append((1/2)*(diff[a])**2)
+            cost_set.append((1 / 2) * (diff[a + len(input_set) * it]) ** 2)
             temp = []
             for b in range(0, input_size):
                 temp.append(input_set[a][b])
             temp.append(output_set[a])
-            accuracy_set.append(temp)
             deltas.append(my_network.get_delta())
-            if (diff[a] - .9527 < .0001):
-                print(input_set[a],"  ",output_set[a],"  ",my_network.get_output()[0],"  DELTA: ",deltas[a])
-    accuracy = my_network.accuracy(accuracy_set)
-    print("AVERAGE % ERROR: ", accuracy[0] * 100)
-    print("AVERAGE RELATIVE DIFFERENCE: ", accuracy[1])
-    fig, ax = plt.subplots()
-    ax.plot(x, diff)
-    ax.set(xlabel='iterations', ylabel='cost function',
-           title='Cost Function over x Iterations')
-    my_network.print_weights()
+    accuracy = my_network.accuracy(test_inp, test_out)
+    #plot_set(x, cost_set, xlabel='Iterations', ylabel='Cost Function', title='Cost Function Over x Iterations')
     my_network.save_network(name)
-    plt.show()
-
-
+    return accuracy[0], accuracy[1], my_network.get_info()
 
 
 # main function
 def main():
-    #debug()
-    #print("Hello world!")
+    # debug()
+    # print("Hello world!")
 
     data = preprocessing()
-    input_set, output_set = partition(data, n=10000, input_size=5)
 
-    run_network(5, input_set, output_set, name="test1_U.txt", num_layers=1, iterations=1, gamma=.1)
+    data_size = 100000
+    test_size = 50000
+    min_accuracy = 1
+    best = []
+    best_file = ""
+    iterator = 0
+    total_tests = 5 * 4 * 20
+    for i in range(2,7):
+        for num_layers in range(0, 4):
+            for layer_size_override in range(0,i):
+                iterator += 1
+                print("TEST ",iterator," OUT OF ", total_tests)
+                name = "TEST_1_"+str(iterator)+".txt"
+                input_set, output_set = partition(data, n=data_size, input_size=i)
+                test_inp, test_out = partition(data, n=test_size, input_size=i)
+                accuracy, rel_diff, network_vec = run_network(i, input_set, output_set, test_inp, test_out, name=name, num_layers=num_layers, gamma=.1)
+                print("AVERAGE % ERROR: ", accuracy * 100)
+                print("AVERAGE RELATIVE DIFFERENCE: ", rel_diff)
+                if(accuracy < min_accuracy):
+                    min_accuracy = accuracy
+                    best = network_vec
+                    best_file = name
+    print("BEST FIT: "+best_file)
+    print("ACCURACY: "+min_accuracy)
 
 
 if __name__ == "__main__":
