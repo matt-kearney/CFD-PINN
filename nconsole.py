@@ -11,6 +11,7 @@ import datetime
 import nutil
 import nnetwork
 import ndata
+import nconfig
 
 
 # Allows the user to either choose [Y]es or [n]o and returns the users choice
@@ -139,8 +140,9 @@ def chelp(args):
         nutil.nprint('load [-s] [-p path] -n name')
         nutil.nprint('save [-s] [-p path] [-n name]')
         nutil.nprint('train [-n] [-a [-p path] [-n name]] [-c]')
-        nutil.nprint('test [-i iterations]')
+        nutil.nprint('test [-i iterations] [-c [-p]]')
         nutil.nprint('config')
+        nutil.nprint('status')
         nutil.nprint("For more detailed usages, use 'help [cmd]'")
         nutil.nprint("Please note, the command name MUST be first, the order of the optional arguments can be in any ")
         nutil.nprint("order, however if they need to be proceeded with a variable, then they must be.")
@@ -177,10 +179,14 @@ def chelp(args):
         nutil.nprint("Tests a neural network over test data:")
         nutil.nprint("[-i iterations] is an optional input that indicates the designated number of iterations to test")
         nutil.nprint("over. By default, the iterations is set to 100,000.")
+        nutil.nprint("[-c] is an optional input that indicates whether or not to compare the primary network to the ")
+        nutil.nprint("secondary network. An additional optional input [-p] can be set to print the data to the console")
     elif args[1] == 'config':
         nutil.nprint("Executes 'config mode', which allows the user to change configuration settings with the program.")
     elif args[1] == 'help':
         nutil.nprint('Listen here wiseguy...')
+    elif args[1] == 'status':
+        nutil.nprint('Displays the status of the networks in the two memory slots.')
     else:
         nutil.nprint("Command not recognized. Type 'help' for a list of available commands.")
 
@@ -268,13 +274,84 @@ def cconfig(args):
 # called when 'train' command is entered
 def ctrain(args):
     nutil.nprint_default = 'TRN'
+
     nutil.nprint('TRAIN')
+
+
+# returns the error between an output and the designated output
+def find_error(expected_output, actual_output):
+    return (expected_output - actual_output) ** 2 / 2
 
 
 # called when 'test' command is entered
 def ctest(args):
     nutil.nprint_default = 'TST'
-    nutil.nprint('TEST')
+    compare = False
+    print_comparison = False
+    iterations = 100000
+    size = len(args)
+    for index in range(0, size):
+        if args[index] == '-i' and index < size - 1:
+            index += 1
+            iterations = int(args[index])
+        if args[index] == '-c':
+            compare = True
+        if args[index] == '-p':
+            print_comparison = True
+    if compare:
+        if not ndata.primary_network.input_size == ndata.secondary_network.input_size:
+            nutil.nprint("Primary and Secondary networks differ in size. Please reload different networks:")
+            nutil.nprint("Primary size: " + str(ndata.primary_network.input_size))
+            nutil.nprint("Secondary size: " + str(ndata.secondary_network.input_size))
+            return
+    test_set_input, test_set_output = ndata.partition(iterations, nconfig.number_inputs)
+    primary_error = 0
+    secondary_error = 0
+    if compare:
+        for i in range(0, iterations):
+            ndata.primary_network.evaluate(test_set_input[i])
+            primary_error += find_error(test_set_output[i], ndata.primary_network.get_output()[0])
+            ndata.secondary_network.evaluate(test_set_input[i])
+            secondary_error += find_error(test_set_output[i], ndata.secondary_network.get_output()[0])
+            if print_comparison:
+                msg = "INPUT: " + test_set_input[i] + "  PRIMARY: " + ndata.primary_network.get_output()[
+                    0] + "  SECONDARY: " + ndata.secondary_network.get_output()[0] + "  EXPECTED: " + test_set_output[i]
+                nutil.nprint(msg)
+    else:
+        for i in range(0, iterations):
+            ndata.primary_network.evaluate(test_set_input[i])
+            primary_error += find_error(test_set_output[i], ndata.primary_network.get_output()[0])
+            if print_comparison:
+                msg = "INPUT: " + test_set_input[i] + "  RESULT: " + ndata.primary_network.get_output()[0]
+                nutil.nprint(msg)
+    nutil.nprint("RESULTS:")
+    if compare:
+        nutil.nprint("Primary average error:   " + str(primary_error / iterations))
+        nutil.nprint("Secondary average error: " + str(secondary_error / iterations))
+    else:
+        nutil.nprint("Average error: "+ str(primary_error / iterations))
+
+# called when 'status' command is entered
+def cstatus():
+    nutil.nprint_default = 'STS'
+    nutil.nprint("NETWORK STATUSES:")
+
+    if ndata.primary_network is None:
+        nutil.nprint("There is no network loaded in primary slot.")
+    else:
+        if not ndata.primary_network_saved:
+            nutil.nprint("Primary network has not yet been saved.")
+        else:
+            msg = "Primary network is saved as " + ndata.primary_file_name
+            nutil.nprint(msg)
+    if ndata.secondary_network is None:
+        nutil.nprint("There is no network loaded in secondary slot.")
+    else:
+        if not ndata.secondary_network_saved:
+            nutil.nprint("Secondary network has not yet been saved.")
+        else:
+            msg = "Secondary network is saved as " + ndata.secondary_file_name
+            nutil.nprint(msg)
 
 
 # main function
@@ -290,9 +367,7 @@ def console(args):
             return -1
     print("-===NEURAL NETWORK INTERFACE ", nutil.version, "===-\n")
     nutil.nprint('startup procedure initialized.')
-    # TODO
-    # Preprocessing
-    command = ""
+    ndata.dataset = ndata.preprocessing()
     while running:
         print("------------------------")
         try:
@@ -320,6 +395,8 @@ def console(args):
             ctest(args)
         elif args[0] == 'train':
             ctrain(args)
+        elif args[0] == 'status':
+            cstatus()
         else:
             nutil.nprint("Command not recognized. Type 'help' to see available commands and usages.")
 

@@ -21,6 +21,7 @@ secondary_network = None
 secondary_network_saved = True
 secondary_file_name = ""
 
+dataset = []
 
 
 # normalizes n on the scale of [-1,1] based on min/max [min,max]
@@ -32,7 +33,7 @@ def normalize(dmin, dmax, n):
 
 # partitions a set of data (in [t][x][y][z] format) into input and output arrays with given sizings
 # returns an input set, output set, and input/output sets for testing
-def partition(data, n, input_size):
+def partition(n, input_size):
     nutil.debug("Partitioning")
     input_set = []
     output_set = []
@@ -43,9 +44,9 @@ def partition(data, n, input_size):
         y = int(random.random() * 20)
         z = int(random.random() * 2200)
         for b in range(t, input_size + t):
-            temp.append(data[b][x][y][z])
+            temp.append(dataset[b][x][y][z])
         input_set.append(temp)
-        temp = [data[t + 1 + input_size][x][y][z]]
+        temp = [dataset[t + 1 + input_size][x][y][z]]
         output_set.append(temp)
     return input_set, output_set
 
