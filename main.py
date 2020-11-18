@@ -36,10 +36,6 @@ def partition(data, n, input_size):
     print("Partitioning")
     input_set = []
     output_set = []
-    test_inp = []
-    test_out = []
-    max = -np.inf
-    min = np.inf
     for a in range(0, n):
         t = int(random.random() * (10 - input_size - 1))
         temp = []
@@ -47,26 +43,11 @@ def partition(data, n, input_size):
         y = int(random.random() * 20)
         z = int(random.random() * 2200)
         for b in range(t, input_size + t):
-            pt = data[b][x][y][z]
-            if (min > pt):
-                min = pt
-            if (max < pt):
-                max = pt
             temp.append(data[b][x][y][z])
         input_set.append(temp)
         temp = []
-        pt = data[t + 1 + input_size][x][y][z]
-        if (min > pt):
-            min = pt
-        if (max < pt):
-            max = pt
-        temp.append(pt)
+        temp.append(data[t+1+input_size][x][y][z])
         output_set.append(temp)
-    for a in range(0, n):
-        for b in range(0, input_size):
-            input_set[a][b] = normalize(min, max, input_set[a][b])
-        for b in range(0, len(output_set[0])):
-            output_set[a][b] = normalize(min, max, output_set[a][b])
     return input_set, output_set
 
 
@@ -81,18 +62,39 @@ def preprocessing():
 
     # file_to_open = data_folder / "Timestep_1.mat"
     mat_U_all = [];
+    mat_V_all = [];
+    mat_W_all = [];
     for a in range(1, 11):
         file = "Timestep_" + str(a) + ".mat"
         file_to_open = data_folder / file
         mat_contents = sio.loadmat(file_to_open)
         mat_U_all.append(mat_contents['U'])
-    # mat_contents = sio.loadmat(file_to_open)
-    # mat_U = mat_contents['U']
-    # mat_V = mat_contents['V']
-    # mat_W = mat_contents['W']
-    print("U size: ", len(mat_U_all[0][0][0]))
-
-    return mat_U_all
+        mat_V_all.append(mat_contents['V'])
+        mat_W_all.append(mat_contents['W'])
+    data = [mat_U_all, mat_V_all, mat_W_all]
+    max = -np.inf
+    min = np.inf
+    for set in data:
+        for t in set:
+            for x in t:
+                for y in x:
+                    for z in y:
+                        if z > max:
+                            max = z
+                        if z < min:
+                            min = z
+    print("NORMALIZING")
+    size = 10 * 120 * 60 * 2200
+    iterator = 0
+    for v in range(0, len(data)):
+        for t in range(0, len(data[v])):
+            print(iterator / size * 100, "%")
+            for x in range(0, len(data[v][t])):
+                for y in range(0, len(data[v][t][x])):
+                    for z in range(0, len(data[v][t][x][y])):
+                        iterator += 1
+                        data[v][t][x][y][z] = normalize(min, max, data[v][t][x][y][z])
+    return data
 
 
 # custon method to obtain initial vectors for the weights
@@ -560,8 +562,7 @@ def run_network(input_size, input_set, output_set, test_inp, test_out, output_si
             deltas.append(my_network.get_delta())
     accuracy = my_network.accuracy(test_inp, test_out)
     #plot_set(x, cost_set, xlabel='Iterations', ylabel='Cost Function', title='Cost Function Over x Iterations')
-    my_network.save_network(name)
-    return accuracy[0], accuracy[1], my_network.get_info()
+    return accuracy[0], accuracy[1], my_network
 
 
 # main function
@@ -577,22 +578,31 @@ def main():
     best = []
     best_file = ""
     iterator = 0
-    total_tests = 5 * 4 * 20
-    for i in range(2,7):
-        for num_layers in range(0, 4):
-            for layer_size_override in range(0,i):
-                iterator += 1
-                print("TEST ",iterator," OUT OF ", total_tests)
-                name = "TEST_1_"+str(iterator)+".txt"
-                input_set, output_set = partition(data, n=data_size, input_size=i)
-                test_inp, test_out = partition(data, n=test_size, input_size=i)
-                accuracy, rel_diff, network_vec = run_network(i, input_set, output_set, test_inp, test_out, name=name, num_layers=num_layers, gamma=.1)
-                print("AVERAGE % ERROR: ", accuracy * 100)
-                print("AVERAGE RELATIVE DIFFERENCE: ", rel_diff)
-                if(accuracy < min_accuracy):
-                    min_accuracy = accuracy
-                    best = network_vec
-                    best_file = name
+    total_tests = 5 * 4 * 3
+    print("BEGINNING TESTS")
+    for d in range(0,3):
+        if d == 0:
+            print("U TEST")
+        elif d == 1:
+            print("V TEST")
+        elif d == 2:
+            print("W TEST")
+        for i in range(2,7):
+            for num_layers in range(0, 4):
+                for layer_size_override in range(0,1):
+                    iterator += 1
+                    print("TEST ",iterator," OUT OF ", total_tests)
+                    name = "TEST_1_"+str(iterator)+".txt"
+                    input_set, output_set = partition(data[d], n=data_size, input_size=i)
+                    test_inp, test_out = partition(data[d], n=test_size, input_size=i)
+                    accuracy, rel_diff, network = run_network(i, input_set, output_set, test_inp, test_out, name=name, num_layers=num_layers, gamma=.1)
+                    print("AVERAGE % ERROR: ", accuracy * 100)
+                    print("AVERAGE RELATIVE DIFFERENCE: ", rel_diff)
+                    if(accuracy < min_accuracy):
+                        min_accuracy = accuracy
+                        best = network
+                        network.save_network(name)
+                        best_file = name
     print("BEST FIT: "+best_file)
     print("ACCURACY: "+min_accuracy)
 
