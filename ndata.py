@@ -12,6 +12,16 @@ from pathlib import Path
 import nutil
 import nnetwork
 
+# instance variables for the script
+primary_network = None
+primary_network_saved = True
+primary_file_name = ""
+
+secondary_network = None
+secondary_network_saved = True
+secondary_file_name = ""
+
+
 
 # normalizes n on the scale of [-1,1] based on min/max [min,max]
 def normalize(dmin, dmax, n):
@@ -47,7 +57,7 @@ def preprocessing():
     nutil.debug("preprocessing")
     random.seed(3223)
 
-    data_folder = Path("C:/Users/ultim/Documents/2020/School Stuff/Research/AI/Data/")
+    data_folder = Path(nutil.data_path)
 
     # file_to_open = data_folder / "Timestep_1.mat"
     mat_u_all = []

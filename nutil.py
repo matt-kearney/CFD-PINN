@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 debugf = False
 version = 1.0
 save_path = "Out/"
+nprint_default = 'NNI'
+data_path = "C:/Users/ultim/Documents/2020/School Stuff/Research/AI/Data/"
 
 
 # Plots a given set
@@ -20,7 +22,7 @@ def plot_set(x, y, ylabel='y', xlabel='x', title='graph'):
 
 
 # prints a message with a designated tag
-def nprint(message, tag):
+def nprint(message, tag=nprint_default):
     print("[", tag, "] ", message)
 
 
