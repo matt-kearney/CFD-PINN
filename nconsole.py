@@ -170,7 +170,6 @@ def chelp(args):
         nutil.nprint("<name>.txt, however if it's left empty, it will be a procedurally generated name.")
     elif args[1] == 'train':
         nutil.nprint("Trains a neural network over sampled data:")
-        nutil.nprint("[-n] is an optional input that when present, indicates that a new network will be created.")
         nutil.nprint("[-a] is an optional input that when present, indicates that the generated network will be ")
         nutil.nprint("automatically saved. This can be additionally followed by [-p path] and/or [-n name]. See ")
         nutil.nprint("'help save' for usage of the -p and -n options.")
@@ -275,7 +274,41 @@ def cconfig(args):
 def ctrain(args):
     nutil.nprint_default = 'TRN'
 
-    nutil.nprint('TRAIN')
+    size = len(args)
+    create_new = False
+    autosave = False
+    save_path = nutil.save_path
+    save_name = generate_name()
+    for index in range(0, size):
+        if args[index] == '-a':
+            autosave = True
+        if args[index] == '-p' and index < size - 1:
+            index += 1
+            save_path = args[index]
+        if args[index] == '-n' and index < size - 1:
+            index += 1
+            save_name = args[index]
+        if args[index] == '-c':
+            nutil.nprint("CONFIG")
+    if not ndata.primary_network is None and not ndata.primary_network_saved:
+        msg = "[ WARNING ]  You still have unsaved work. Are you sure you would like to proceed? [Y/n]"
+        ch = console_confirm(msg, "[ ERROR ]  Please enter either [Y] or [n]")
+        if ch == "n":
+            return 1
+    ndata.primary_network = ndata.train_network(nconfig.input_size, nconfig.num_layers, nconfig.gamma,
+                                                nconfig.layer_size_override, nconfig.iterations)
+    if autosave:
+        if path.exists(save_path + save_name):
+            overwrite = console_confirm("[ SAV ]  Filename exists already, would you like to overwrite? [Y/n]",
+                                        "[ SAV ]  Please select either [Y] or [n]")
+            if overwrite == 'n':
+                save_name += "(2)"
+        ndata.primary_file_name = save_name + save_path
+        ndata.primary_network_saved = True
+        save_network(ndata.primary_network, save_name, save_path)
+    else:
+        ndata.primary_network_saved = False
+
 
 
 # returns the error between an output and the designated output
@@ -304,7 +337,7 @@ def ctest(args):
             nutil.nprint("Primary size: " + str(ndata.primary_network.input_size))
             nutil.nprint("Secondary size: " + str(ndata.secondary_network.input_size))
             return
-    test_set_input, test_set_output = ndata.partition(iterations, nconfig.number_inputs)
+    test_set_input, test_set_output = ndata.partition(iterations, nconfig.input_size)
     primary_error = 0
     secondary_error = 0
     if compare:
@@ -329,7 +362,8 @@ def ctest(args):
         nutil.nprint("Primary average error:   " + str(primary_error / iterations))
         nutil.nprint("Secondary average error: " + str(secondary_error / iterations))
     else:
-        nutil.nprint("Average error: "+ str(primary_error / iterations))
+        nutil.nprint("Average error: " + str(primary_error / iterations))
+
 
 # called when 'status' command is entered
 def cstatus():

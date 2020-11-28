@@ -110,7 +110,7 @@ def solve(pre, post):
 
 class Network:
 
-    def __init__(self, input_size=0, output_size=0, num_layers=2, gamma=.1, layer_size_override=0):
+    def __init__(self, input_size=0, output_size=1, num_layers=2, gamma=.1, layer_size_override=0):
         # for loading and saving
         if input_size == 0:
             return

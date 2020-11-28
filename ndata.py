@@ -3,9 +3,8 @@
 
 # module imports
 import numpy as np
-import scipy.io as sio
 import random
-
+import scipy.io as sio
 from pathlib import Path
 
 # local imports
@@ -34,6 +33,7 @@ def normalize(dmin, dmax, n):
 # partitions a set of data (in [t][x][y][z] format) into input and output arrays with given sizings
 # returns an input set, output set, and input/output sets for testing
 def partition(n, input_size):
+    nutil.nprint("SIZE OF DATASET:"+str(len(dataset)))
     nutil.debug("Partitioning")
     input_set = []
     output_set = []
@@ -43,10 +43,11 @@ def partition(n, input_size):
         x = int(random.random() * 120)
         y = int(random.random() * 20)
         z = int(random.random() * 2200)
+        v = int(random.random() * 3)
         for b in range(t, input_size + t):
-            temp.append(dataset[b][x][y][z])
+            temp.append(dataset[v][b][x][y][z])
         input_set.append(temp)
-        temp = [dataset[t + 1 + input_size][x][y][z]]
+        temp = [dataset[v][t + 1 + input_size][x][y][z]]
         output_set.append(temp)
     return input_set, output_set
 
@@ -95,6 +96,18 @@ def preprocessing():
                         iterator += 1
                         data[v][t][x][y][z] = normalize(dmin, dmax, data[v][t][x][y][z])
     return data
+
+
+def train_network(input_size, num_layers=0, gamma=.1, layer_size_override=0, iterations=1):
+    my_network = nnetwork.Network(input_size=input_size,
+                                  output_size=1,
+                                  num_layers=num_layers,
+                                  gamma=gamma,
+                                  layer_size_override=layer_size_override)
+    input_set, output_set = partition(iterations, input_size)
+    for a in range(0, len(input_set)):
+        my_network.compute(input_set[a], output_set[a])
+    return my_network
 
 
 # creates a new neural network given the parameters for a new network (for the constructor of the Network Object)
